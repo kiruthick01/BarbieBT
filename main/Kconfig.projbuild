@@ -36,6 +36,10 @@ menu "Barbie BT"
         int "I2S data in GPIO (from INMP441 SD)"
         default 19
 
+    config BARBIE_PIN_BUTTON
+        int "Call button GPIO (active low, other leg to GND). 0 = the devkit BOOT button"
+        default 0
+
     config BARBIE_TONE_HZ
         int "Stage 2 tone frequency (Hz)"
         default 440

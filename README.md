@@ -77,7 +77,7 @@ flowchart LR
 | MAX98357A | I2S class-D amp | runs off 5 V, drives an 8 ohm salvaged phone speaker |
 | INMP441 | I2S MEMS microphone | 3.3 V only |
 | LiPo 3.7 V + TP4056 + MT3608 | power | not wired yet |
-| Original keypad | answer, hang up, ringtone select | not traced yet |
+| Call button | answer, hang up, reject, ringtone select | BOOT button for now, a small switch later |
 
 ```
    ESP32 GPIO26 ──────┬─────────── MAX98357A BCLK
@@ -104,7 +104,7 @@ Each stage is a menuconfig choice and was bought with its own flash cycle.
 | 3 | I2S in: live dBFS meter on the mic | works |
 | 4 | HFP: pairs, sees incoming calls, answers, hangs up | works |
 | 5 | ringtone, voice link, two-way audio bridge | audio flows both ways, quality tuning in progress |
-| 6 | physical keypad: answer, hang up, ringtone select | planned |
+| 6 | one button: answer, hang up, reject, ringtone select | works (devkit BOOT button, GPIO pin set in menuconfig) |
 | 7 | battery, charger, power switch | planned |
 | 8 | everything inside the shell | planned |
 

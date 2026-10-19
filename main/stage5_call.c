@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "audio_io.h"
+#include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_bt.h"
 #include "esp_bt_device.h"
@@ -439,6 +440,63 @@ static void hf_cb(esp_hf_client_cb_event_t event, esp_hf_client_cb_param_t *para
     }
 }
 
+/* ---- single button: short press acts on the call state, long press rejects ---- */
+#define BTN_LONG_MS 700
+#define BTN_PREVIEW_MS 3000
+
+static void button_task(void *arg)
+{
+    const gpio_num_t pin = CONFIG_BARBIE_PIN_BUTTON;
+    gpio_config_t io = {
+        .pin_bit_mask = 1ULL << pin,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+    };
+    gpio_config(&io);
+
+    int held_ms = 0;
+    int preview_left = 0;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+        if (preview_left > 0 && (preview_left -= 10) <= 0) {
+            s_preview = false;
+        }
+        bool down = gpio_get_level(pin) == 0;
+        if (down) {
+            held_ms += 10;
+            continue;
+        }
+        if (held_ms < 30) { /* debounce: ignore glitches */
+            held_ms = 0;
+            continue;
+        }
+        bool long_press = held_ms >= BTN_LONG_MS;
+        held_ms = 0;
+
+        call_state_t st = s_state;
+        if (st == ST_RINGING) {
+            if (long_press) {
+                ESP_LOGI(TAG, "button: reject");
+                esp_hf_client_reject_call();
+            } else {
+                ESP_LOGI(TAG, "button: answer");
+                esp_hf_client_answer_call();
+            }
+        } else if (st == ST_IN_CALL) {
+            ESP_LOGI(TAG, "button: hang up");
+            esp_hf_client_reject_call();
+        } else if (long_press) {
+            s_preview = false;
+            preview_left = 0;
+        } else {
+            s_ringtone = (s_ringtone + 1) % 3;
+            s_preview = true;
+            preview_left = BTN_PREVIEW_MS;
+            ESP_LOGI(TAG, "button: ringtone %d", s_ringtone + 1);
+        }
+    }
+}
+
 /* ---- console ---- */
 static void console_task(void *arg)
 {
@@ -532,6 +590,7 @@ void stage5_call_run(void)
 
     uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0);
     xTaskCreate(console_task, "console", 3072, NULL, 5, NULL);
+    xTaskCreate(button_task, "button", 3072, NULL, 5, NULL);
 
     s_cap_rx = heap_caps_malloc(CAP_N * sizeof(int16_t), MALLOC_CAP_8BIT);
     s_cap_tx = heap_caps_malloc(CAP_N * sizeof(int16_t), MALLOC_CAP_8BIT);
