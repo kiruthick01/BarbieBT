@@ -1,17 +1,8 @@
-```
-   .---------------.
-   |  .---------.  |
-   |  | 2:47 PM |  |     B A R B I E B T
-   |  '---------'  |
-   |               |     a toy flip phone
-   |  [1] [2] [3]  |     that takes real calls
-   |  [4] [5] [6]  |     over Bluetooth
-   |  [7] [8] [9]  |
-   |  [*] [0] [#]  |
-   '---------------'
-```
-
 <div align="center">
+
+# BarbieBT
+
+A toy flip phone that takes real calls over Bluetooth.
 
 ![ESP32](https://img.shields.io/badge/chip-ESP32_classic-e7352c?style=flat-square)
 ![ESP-IDF](https://img.shields.io/badge/ESP--IDF-5.4-1f1f1f?style=flat-square)
