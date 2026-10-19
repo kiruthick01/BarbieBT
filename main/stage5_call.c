@@ -170,11 +170,15 @@ static float biquad_run(biquad_t *f, float x)
 
 typedef struct { float env, gain; } agc_t;
 
-/* Peak-following AGC. Below `gate` the gain is held (and relaxes to 4x) so hiss is not boosted. */
-static float agc_run(agc_t *a, float x, float target, float max_gain, float gate)
+/* Peak-following AGC. Below `gate` the gain is held (and relaxes to 4x) so hiss is not boosted.
+ * `freeze` keeps the gain as is, used while the speaker is playing so mic echo is not amplified. */
+static float agc_run(agc_t *a, float x, float target, float max_gain, float gate, bool freeze)
 {
     float ax = fabsf(x);
     a->env += (ax > a->env ? 0.1f : 0.002f) * (ax - a->env);
+    if (freeze) {
+        return x * a->gain;
+    }
     if (a->env > gate) {
         float want = target / a->env;
         if (want > max_gain) {
@@ -230,6 +234,7 @@ static void audio_task(void *arg)
     biquad_hp(&tx_hp, 200.0f, 8000.0f);
     agc_t rx_agc = { 0, 1.0f }, tx_agc = { 0, 1.0f };
     float duck = 1.0f;
+    int far_hold = 0; /* mic samples left in which the speaker still counts as playing */
     float w[7] = { 0 };                   /* 16 kHz mic history for the 7-tap halfband decimator */
     float u0 = 0, u1 = 0, u2 = 0, u3 = 0; /* 8 kHz speaker history for the cubic upsampler */
     int stat_iter = 0;
@@ -286,10 +291,17 @@ static void audio_task(void *arg)
                 if (i & 1) {
                     float x = (-w[0] + 9.0f * w[2] + 16.0f * w[3] + 9.0f * w[4] - w[6]) * (1.0f / 32.0f);
                     x = biquad_run(&tx_hp, x);
-                    x = agc_run(&tx_agc, x, 10000.0f, 16.0f, 150.0f);
-                    /* voice switch: far end talking -> mute mic mostly, so the speaker does not echo back */
-                    float tgt = rx_agc.env > 700.0f ? 0.25f : 1.0f;
-                    duck += (tgt < duck ? 0.01f : 0.0005f) * (tgt - duck);
+                    /* voice switch: judge by what the speaker plays (env x gain), hold ~120 ms for the
+                     * I2S/DMA delay, then duck the mic hard so the caller does not hear themselves back */
+                    if (rx_agc.env * rx_agc.gain > 900.0f) {
+                        far_hold = 960;
+                    } else if (far_hold > 0) {
+                        far_hold--;
+                    }
+                    bool far = far_hold > 0;
+                    x = agc_run(&tx_agc, x, 10000.0f, 16.0f, 150.0f, far);
+                    float tgt = far ? 0.12f : 1.0f;
+                    duck += (tgt < duck ? 0.03f : 0.002f) * (tgt - duck);
                     mic[k] = to_i16(soft_limit(x * duck));
                     int am = mic[k] < 0 ? -mic[k] : mic[k];
                     if (am > s_mic_peak) {
@@ -324,7 +336,7 @@ static void audio_task(void *arg)
             /* HP 300 Hz -> AGC -> limiter -> cubic x2 upsample -> I2S */
             for (int j = 0; j < SCO_SAMPLES; j++) {
                 float x = biquad_run(&rx_hp, (float)spk[j]);
-                float y = soft_limit(agc_run(&rx_agc, x, 14000.0f, 6.0f, 120.0f));
+                float y = soft_limit(agc_run(&rx_agc, x, 14000.0f, 6.0f, 120.0f, false));
                 u0 = u1;
                 u1 = u2;
                 u2 = u3;
