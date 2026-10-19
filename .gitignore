@@ -1,0 +1,5 @@
+build/
+sdkconfig
+sdkconfig.old
+eim_config.toml
+*.log

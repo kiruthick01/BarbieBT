@@ -1,0 +1,47 @@
+menu "Barbie BT"
+
+    choice BARBIE_STAGE
+        prompt "Test stage to build"
+        default BARBIE_STAGE_2_TONE
+
+        config BARBIE_STAGE_2_TONE
+            bool "Stage 2: speaker test tone (MAX98357A)"
+        config BARBIE_STAGE_3_MIC
+            bool "Stage 3: microphone level meter (INMP441)"
+        config BARBIE_STAGE_4_HFP
+            bool "Stage 4: HFP events + answer/hangup over serial"
+        config BARBIE_STAGE_5_CALL
+            bool "Stage 5: ringtone + voice link + audio bridge"
+    endchoice
+
+    config BARBIE_RING_VOLUME_PCT
+        int "Stage 5 ringtone volume (% of full scale)"
+        range 1 40
+        default 25
+    config BARBIE_CALL_VOLUME_PCT
+        int "Stage 5 call speaker volume (% of full scale)"
+        range 1 60
+        default 50
+
+    config BARBIE_PIN_BCLK
+        int "I2S BCLK GPIO (shared amp + mic)"
+        default 26
+    config BARBIE_PIN_WS
+        int "I2S WS/LRCLK GPIO (shared amp + mic)"
+        default 25
+    config BARBIE_PIN_DOUT
+        int "I2S data out GPIO (to MAX98357A DIN)"
+        default 22
+    config BARBIE_PIN_DIN
+        int "I2S data in GPIO (from INMP441 SD)"
+        default 19
+
+    config BARBIE_TONE_HZ
+        int "Stage 2 tone frequency (Hz)"
+        default 440
+    config BARBIE_TONE_VOLUME_PCT
+        int "Stage 2 tone volume (% of full scale). Keep low for small speaker."
+        range 1 40
+        default 8
+
+endmenu
